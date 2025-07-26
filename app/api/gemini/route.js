@@ -23,7 +23,7 @@ export async function POST(req) {
 
     // 3. Call Gemini API
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     console.log("Generating content from Gemini...");
     
     const result = await model.generateContent(prompt);
