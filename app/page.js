@@ -1,81 +1,70 @@
-// Add this at the VERY TOP of the file
-"use client";
+'use client';
 
 import { useState } from 'react';
 
 export default function HomePage() {
-  // State to hold user input, song results, and loading status
-  const [userInput, setUserInput] = useState('');
-  const [songs, setSongs] = useState([]);
+  const [prompt, setPrompt] = useState('');
+  const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const getSuggestions = async () => {
-    if (!userInput) return;
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSongs([]);
+    setResponse('');
 
     try {
-      // Step 1: Call your OWN secure API endpoint
-      const response = await fetch('/api/suggestions', {
+      const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: userInput }),
+        body: JSON.stringify({ prompt }),
       });
+      
+      const data = await res.json(); // Try to parse the response as JSON
 
-      if (!response.ok) {
-        throw new Error('Failed to get suggestions from the server.');
+      if (!res.ok) {
+        // If the server returned an error (like 400 or 500), use its error message
+        throw new Error(data.error || 'API request failed.');
       }
 
-      const data = await response.json();
-      setSongs(data.trackIds || []);
+      setResponse(data.text);
 
     } catch (err) {
+      // This will now catch the "Unexpected token '<'" error if the path is wrong,
+      // or the specific error from our API if the path is correct but something else fails.
       setError(err.message);
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main>
-      <div className="container">
-        <h1>AI Song Suggester</h1>
-        <p>Describe a mood, genre, or activity, and get some song recommendations!</p>
-        
-        <div className="search-container">
-          <input
-            type="text"
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            placeholder="e.g., Upbeat 80s synthwave for driving at night"
-            disabled={isLoading}
-          />
-          <button onClick={getSuggestions} disabled={isLoading}>
-            {isLoading ? 'Getting Songs...' : 'Get Suggestions'}
-          </button>
-        </div>
+    <main className="container">
+      <h1>Gemini AI Prompt</h1>
+      <form onSubmit={handleSubmit}>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter your prompt..."
+          rows="5"
+          required
+        />
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? 'Generating...' : 'Generate Response'}
+        </button>
+      </form>
 
-        {error && <p className="error-message">{error}</p>}
+      {error && <p className="error">Error: {error}</p>}
 
-        <div className="suggestions-container">
-          {songs.map(trackId => (
-            <iframe
-              key={trackId}
-              src={`https://open.spotify.com/embed/track/${trackId}`}
-              width="100%"
-              height="352"
-              allow="encrypted-media"
-              loading="lazy"
-            ></iframe>
-          ))}
+      {response && (
+        <div className="response-container">
+          <h2>Response:</h2>
+          <pre>{response}</pre>
         </div>
-      </div>
+      )}
     </main>
   );
 }
