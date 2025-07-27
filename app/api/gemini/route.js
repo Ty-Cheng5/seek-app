@@ -1,44 +1,94 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import SpotifyWebApi from 'spotify-web-api-node';
+
+// Initialize Spotify API client
+const spotifyApi = new SpotifyWebApi({
+  clientId: process.env.SPOTIFY_CLIENT_ID,
+  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+});
+
+// Function to get a Spotify Access Token
+async function getSpotifyAccessToken() {
+  try {
+    const data = await spotifyApi.clientCredentialsGrant();
+    console.log('The access token is ' + data.body['access_token']);
+    spotifyApi.setAccessToken(data.body['access_token']);
+    return true;
+  } catch (error) {
+    console.error('Something went wrong when retrieving an access token', error);
+    return false;
+  }
+}
 
 export async function POST(req) {
-  console.log("API route /api/gemini hit."); // Log that the route was accessed
+  console.log("API route /api/gemini hit.");
 
   try {
-    // 1. Check for API Key
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("GEMINI_API_KEY is not defined.");
+    // 1. Check for API Keys
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
       throw new Error("GEMINI_API_KEY is not configured on the server.");
     }
-    console.log("API Key found.");
+
+    if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+      throw new Error("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET is not configured.");
+    }
+    console.log("API Keys found.");
 
     // 2. Get Prompt
     const { prompt } = await req.json();
     if (!prompt) {
-      console.error("No prompt provided in the request.");
       return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
     }
     console.log("Prompt received:", prompt);
 
-    // 3. Call Gemini API
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // 3. Get Spotify Access Token
+    const spotifyAuthenticated = await getSpotifyAccessToken();
+    if (!spotifyAuthenticated) {
+        throw new Error("Failed to authenticate with Spotify.");
+    }
+
+    // 4. Call Gemini API to get a list of items
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     console.log("Generating content from Gemini...");
     
-    const result = await model.generateContent(prompt);
+    // We ask Gemini to give us a list of items, separated by newlines
+    const geminiPrompt = `Based on the following prompt, provide a list of 5 relevant songs, artists, or albums. Each item should be on a new line. Prompt: "${prompt}"`;
+    const result = await model.generateContent(geminiPrompt);
     const response = await result.response;
     const text = response.text();
-    console.log("Gemini response received.");
+    console.log("Gemini response received:", text);
 
-    // 4. Send Success Response
-    return NextResponse.json({ text });
+    const items = text.split('\n').filter(item => item.trim() !== '');
+
+    // 5. Search for each item on Spotify
+    const spotifyResults = [];
+    for (const item of items) {
+        const searchResult = await spotifyApi.searchTracks(item, { limit: 1 });
+        if (searchResult.body.tracks.items.length > 0) {
+            const track = searchResult.body.tracks.items[0];
+            spotifyResults.push({
+                name: track.name,
+                artist: track.artists.map(artist => artist.name).join(', '),
+                url: track.external_urls.spotify,
+            });
+        }
+    }
+
+    // 6. Format the final response
+    let formattedResponse = "Here are some Spotify links related to your prompt:\n\n";
+    spotifyResults.forEach(item => {
+        formattedResponse += `- **${item.name}** by ${item.artist}: ${item.url}\n`;
+    });
+
+    // 7. Send Success Response
+    return NextResponse.json({ text: formattedResponse });
 
   } catch (error) {
-    // This is the most important log
     console.error("!!! CRITICAL ERROR in /api/gemini:", error);
     
-    // Send back a structured error message
     return NextResponse.json(
       { error: error.message || "An unknown server error occurred." },
       { status: 500 }
