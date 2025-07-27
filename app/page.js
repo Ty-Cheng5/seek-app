@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import styles from './page.module.css';
 
-// We can define the Song component right here or in a separate file.
+// We can define the Song component right here or in a separate file
 function Song({ name, artist, album, imageUrl, url, uri }) {
   const trackId = uri.split(':')[2];
   const embedUrl = `https://open.spotify.com/embed/track/${trackId}`;
