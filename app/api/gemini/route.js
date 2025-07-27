@@ -54,7 +54,6 @@ export async function POST(req) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     console.log("Generating content from Gemini...");
     
-    // We ask Gemini to give us a list of items, separated by newlines
     const geminiPrompt = `Based on the following prompt, provide a list of 5 relevant songs, artists, or albums. Each item should be on a new line. Prompt: "${prompt}"`;
     const result = await model.generateContent(geminiPrompt);
     const response = await result.response;
@@ -72,15 +71,30 @@ export async function POST(req) {
             spotifyResults.push({
                 name: track.name,
                 artist: track.artists.map(artist => artist.name).join(', '),
+                album: track.album.name,
+                imageUrl: track.album.images[0]?.url, // Get the first album image
                 url: track.external_urls.spotify,
+                uri: track.uri, // Spotify URI for embedding
             });
         }
     }
 
-    // 6. Format the final response
-    let formattedResponse = "Here are some Spotify links related to your prompt:\n\n";
+    // 6. Format the final response with embedded song information
+    let formattedResponse = "Here are some songs related to your prompt:\n\n";
     spotifyResults.forEach(item => {
-        formattedResponse += `- **${item.name}** by ${item.artist}: ${item.url}\n`;
+        // Using Markdown for easy rendering on the frontend
+        formattedResponse += `
+<div style="display: flex; align-items: center; margin-bottom: 20px;">
+  <img src="${item.imageUrl}" alt="${item.album}" style="width: 100px; height: 100px; margin-right: 20px;">
+  <div>
+    <strong>${item.name}</strong> by ${item.artist}<br>
+    Album: ${item.album}<br>
+    <a href="${item.url}" target="_blank" rel="noopener noreferrer">Listen on Spotify</a>
+    <br>
+    <iframe src="https://open.spotify.com/embed/track/${item.uri.split(':')[2]}" width="300" height="80" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>
+  </div>
+</div>
+`;
     });
 
     // 7. Send Success Response

@@ -1,70 +1,72 @@
 'use client';
 
 import { useState } from 'react';
+import styles from './page.module.css';
 
-export default function HomePage() {
+export default function Home() {
   const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const handleSubmit = async (e) => {
+  const generateResponse = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
     setResponse('');
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/gemini', {
+      const apiResponse = await fetch('/api/gemini', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ prompt }),
       });
-      
-      const data = await res.json(); // Try to parse the response as JSON
 
-      if (!res.ok) {
-        // If the server returned an error (like 400 or 500), use its error message
-        throw new Error(data.error || 'API request failed.');
+      if (!apiResponse.ok) {
+        throw new Error(`HTTP error! status: ${apiResponse.status}`);
       }
 
+      const data = await apiResponse.json();
       setResponse(data.text);
 
-    } catch (err) {
-      // This will now catch the "Unexpected token '<'" error if the path is wrong,
-      // or the specific error from our API if the path is correct but something else fails.
-      setError(err.message);
+    } catch (error) {
+      console.error("Failed to fetch from API", error);
+      // You can also set an error state here to display to the user
+      setResponse('<p>Sorry, something went wrong. Please try again.</p>');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <main className="container">
-      <h1>Gemini AI Prompt</h1>
-      <form onSubmit={handleSubmit}>
-        <textarea
+    <main className={styles.main}>
+      <h1 className={styles.title}>Music Recommendation AI</h1>
+      <p className={styles.description}>
+        Enter a prompt to get a list of songs from Spotify.
+      </p>
+
+      <form onSubmit={generateResponse} className={styles.form}>
+        <input
+          type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="I want music related to..."
-          rows="5"
-          required
+          placeholder="e.g., 'sad songs for a rainy day'"
+          className={styles.input}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Hold on a sec...' : 'Get Music Suggestions'}
+        <button type="submit" disabled={loading} className={styles.button}>
+          {loading ? 'Thinking...' : 'Generate'}
         </button>
       </form>
 
-      {error && <p className="error">Error: {error}</p>}
-
+      {/* --- This is the main change --- */}
       {response && (
-        <div className="response-container">
-          <h2>Response:</h2>
-          <pre>{response}</pre>
-        </div>
+        <div 
+          className={styles.responseContainer}
+          dangerouslySetInnerHTML={{ __html: response }} 
+        />
       )}
+
+      {loading && <p>Loading...</p>}
     </main>
   );
 }
