@@ -35,7 +35,7 @@ export async function POST(req) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const geminiPrompt = `Based on the following prompt, provide a list of 5 relevant songs, artists, or albums. Each item should be on a new line. Prompt: "${prompt}"`;
     const result = await model.generateContent(geminiPrompt);
