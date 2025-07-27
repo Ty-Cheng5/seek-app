@@ -48,12 +48,12 @@ export default function HomePage() {
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Enter your prompt..."
+          placeholder="I want music related to..."
           rows="5"
           required
         />
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Generating...' : 'Generate Response'}
+          {isLoading ? 'Hold on a sec...' : 'Get Music Suggestions'}
         </button>
       </form>
 
